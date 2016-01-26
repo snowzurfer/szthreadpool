@@ -22,9 +22,13 @@ add_definitions(${TBB_DEFINITIONS})
 # Set headers and sources for the szutl library
 set(SZTHREADPOOL_HEADERS
   #${SZTHREADPOOL_INCLUDE_DIR}/szutl_binary_data_loader.h
+  ${SZTHREADPOOL_INCLUDE_DIR}/lock_free_queue.h
+  ${SZTHREADPOOL_INCLUDE_DIR}/threadsafe_queue.h
 )
 set(SZTHREADPOOL_SOURCES
   ${SZTHREADPOOL_SOURCE_DIR}/main.cpp
+  ${SZTHREADPOOL_SOURCE_DIR}/lock_free_queue.cpp
+  ${SZTHREADPOOL_SOURCE_DIR}/threadsafe_queue.cpp
 )
 
 # Create the szutl library
