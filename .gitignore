@@ -35,3 +35,6 @@ external/
 *.swp
 *~
 
+# Specific files
+include/lock_free_queue.h
+src/lock_free_queue.cpp
