@@ -26,3 +26,12 @@
 *.exe
 *.out
 *.app
+
+# Folders
+build/
+external/
+
+# VIM files
+*.swp
+*~
+
