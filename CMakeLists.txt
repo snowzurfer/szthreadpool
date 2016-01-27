@@ -24,11 +24,14 @@ set(SZTHREADPOOL_HEADERS
   #${SZTHREADPOOL_INCLUDE_DIR}/szutl_binary_data_loader.h
   ${SZTHREADPOOL_INCLUDE_DIR}/lock_free_queue.h
   ${SZTHREADPOOL_INCLUDE_DIR}/threadsafe_queue.h
+  ${SZTHREADPOOL_INCLUDE_DIR}/thread_pool.h
+  ${SZTHREADPOOL_INCLUDE_DIR}/join_threads.h
 )
 set(SZTHREADPOOL_SOURCES
   ${SZTHREADPOOL_SOURCE_DIR}/main.cpp
   ${SZTHREADPOOL_SOURCE_DIR}/lock_free_queue.cpp
   ${SZTHREADPOOL_SOURCE_DIR}/threadsafe_queue.cpp
+  ${SZTHREADPOOL_SOURCE_DIR}/thread_pool.cpp
 )
 
 # Create the szutl library
