@@ -19,7 +19,7 @@ ThreadPool::ThreadPool() :
   try {
     for (size_t i = 0; i < thread_count; ++i) {
       threads_.push_back(
-        std::thread(&ThreadPool::WorkerThread, this, i));
+        std::thread(&ThreadPool::WorkerThread, this));
     }
   }
   catch (...) {
@@ -32,13 +32,13 @@ ThreadPool::~ThreadPool() {
   done_ = true;
 }
 
-void ThreadPool::WorkerThread(const int32_t worker_id) {
+void ThreadPool::WorkerThread() {
   while (!done_) {
     JobTuple job;
     if (work_queue_.TryPop(job)) {
       JobFunction task = std::get<0>(job);
       const void *input = std::get<1>(job);
-      task(worker_id, input);
+      task(0, input);
     }
     else {
       std::this_thread::yield();
