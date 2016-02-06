@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include "thread_pool_c.h"
 #include <stdlib.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <time.h>
 
 #ifndef THPOOL_DEBUG
 #define THPOOL_DEBUG 1
@@ -27,12 +30,14 @@ typedef struct JobsQueue {
   int32_t lenght;
 } JobsQueue;
 
-//typedef struct Thread {
-//  int32_t 
-//} Thread;
+typedef struct Thread {
+  int32_t id;
+  pthread_t pthread;
+  struct ThreadPool *thread_pool;
+} Thread;
 
 typedef struct ThreadPool {
-  pthread_t **threads;
+  Thread **threads;
   volatile int32_t threads_alive_num;
   volatile int32_t threads_working_num;
   pthread_mutex_t thread_counts_mut;
@@ -41,9 +46,9 @@ typedef struct ThreadPool {
 } ThreadPool;
 
 
-int32_t ThreadInit(pthread_t **thread, ThreadPool *thread_pool);
-void *WorkerThread(ThreadPool *thread_pool);
-void ThreadJoinAndDestroy(pthread_t *thread);
+int32_t ThreadInit(Thread **thread, int32_t id, ThreadPool *thread_pool);
+void *WorkerThread(Thread *thread);
+void ThreadJoinAndDestroy(Thread *thread);
 int32_t JobsQueueInit(JobsQueue **jobsqueue);
 Job *JobsQueueWaitAndPop(JobsQueue *jobsqueue);
 Job *JobsQueueTryPop(JobsQueue *jobsqueue);
@@ -76,7 +81,7 @@ ThreadPool *ThreadPoolInit(int32_t threads_num) {
   }
 
   // Create the threads array in the threads pool
-  thread_pool->threads = (pthread_t **)malloc(threads_num * sizeof(pthread_t *));
+  thread_pool->threads = (Thread **)malloc(threads_num * sizeof(Thread *));
   if (thread_pool->threads == NULL) {
     fprintf(stderr, "ThreadPoolInit(): Couldn't alllocate memory for the threads array\n");
     JobsQueueClear(thread_pool->jobsqueue);
@@ -91,7 +96,7 @@ ThreadPool *ThreadPoolInit(int32_t threads_num) {
 
   // Initialise worker threads
   for (int32_t i = 0; i < threads_num; i++) {
-    int32_t res = ThreadInit(&thread_pool->threads[i], thread_pool);
+    int32_t res = ThreadInit(&thread_pool->threads[i], i, thread_pool);
     if (res == -1) {
       fprintf(stderr, "ThreadPoolInit(): Couldn't init thread %d\n", i);
       JobsQueueClear(thread_pool->jobsqueue);
@@ -125,26 +130,30 @@ ThreadPool *ThreadPoolInit(int32_t threads_num) {
 }
 
 
-int32_t ThreadInit(pthread_t **thread, ThreadPool *thread_pool) {
-  *thread = (pthread_t *)malloc(sizeof(pthread_t));
+int32_t ThreadInit(Thread **thread, int32_t id, ThreadPool *thread_pool) {
+  *thread = (Thread *)malloc(sizeof(Thread));
   if (thread == NULL) {
-    fprintf(stderr, "ThreadInit(): couldn't allocate memory for pthread_t\n");
+    fprintf(stderr, "ThreadInit(): couldn't allocate memory for Thread\n");
     return -1;
   }
 
-  int32_t result = pthread_create(*thread, NULL, WorkerThread,
-                                  thread_pool);
+  (*thread)->thread_pool = thread_pool;
+  (*thread)->id = id;
+
+  int32_t result = pthread_create(&(*thread)->pthread, NULL, WorkerThread,
+                                  (*thread));
   if (result != 0) {
-    fprintf(stderr, "ThreadInit(): couldn't create thread. Return code is %d\n",
+    fprintf(stderr, "ThreadInit(): couldn't create pthread. Return code is %d\n",
             result);
     return -1;
   }
 
+  
   return 0; 
 }
 
-void ThreadJoinAndDestroy(pthread_t *thread) {
-  int32_t res = pthread_join(*thread, NULL);
+void ThreadJoinAndDestroy(Thread *thread) {
+  int32_t res = pthread_join(thread->pthread, NULL);
   if (res != 0) {
     fprintf(stderr, "ThreadJoinAndDestroy(): Couldn't join thread\n");
   }
@@ -219,11 +228,15 @@ void ThreadpoolDestroy(ThreadPool *thread_pool) {
   thread_pool = NULL;
 }
 
-void *WorkerThread(ThreadPool *thread_pool) {
+void *WorkerThread(Thread *thread) {
+  ThreadPool *thread_pool = thread->thread_pool;
+
   // Mark thread as initialised
   pthread_mutex_lock(&(thread_pool->thread_counts_mut));
   thread_pool->threads_alive_num ++;
   pthread_mutex_unlock(&(thread_pool->thread_counts_mut));
+
+  printf("Initialised thread %d\n", thread->id);
 
   while (threads_keepalive) {
     Job *job = JobsQueueTryPop(thread_pool->jobsqueue);
@@ -241,7 +254,7 @@ void *WorkerThread(ThreadPool *thread_pool) {
         thread_pool->threads_working_num ++;
         pthread_mutex_unlock(&(thread_pool->thread_counts_mut));
 
-        job_routine(-1, input);
+        job_routine(thread->id, input);
 
         free(job);
 
@@ -253,6 +266,10 @@ void *WorkerThread(ThreadPool *thread_pool) {
         }
         pthread_mutex_unlock(&(thread_pool->thread_counts_mut));
       }
+      else {
+        // Sleep for a short while
+        //sleep(0.1);
+      }
     }
   }
 
@@ -261,7 +278,7 @@ void *WorkerThread(ThreadPool *thread_pool) {
   thread_pool->threads_alive_num --;
   pthread_mutex_unlock(&(thread_pool->thread_counts_mut));
 
-  printf("Exiting thread\n");
+  printf("Exiting thread %d\n", thread->id);
   pthread_exit(NULL);
 }
 

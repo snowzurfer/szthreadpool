@@ -26,14 +26,10 @@ include_directories(
 
 # Set headers and sources for the szutl library
 set(SZTHREADPOOL_HEADERS
-  ${SZTHREADPOOL_INCLUDE_DIR}/threadsafe_queue.h
-  ${SZTHREADPOOL_INCLUDE_DIR}/thread_pool.h
   ${SZTHREADPOOL_INCLUDE_DIR}/thread_pool_c.h
-  ${SZTHREADPOOL_INCLUDE_DIR}/join_threads.h
 )
 set(SZTHREADPOOL_SOURCES
   ${SZTHREADPOOL_SOURCE_DIR}/main.cpp
-  ${SZTHREADPOOL_SOURCE_DIR}/thread_pool.cpp
   ${SZTHREADPOOL_SOURCE_DIR}/thread_pool_c.c
 )
 
