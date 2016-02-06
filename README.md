@@ -1,8 +1,5 @@
 # szthreadpool
-Threads pool in C++11.
-
-It also includes thread-safe data structures which are used to implement the
-threads pool but which can also be used separately.
+Threads pool in C.
 
 ## Installation
 Clone the repo and use CMake to create a project build. Then compile and use.
@@ -19,6 +16,7 @@ TODO: Write usage instructions
 
 ## History
 * January 2015: started development.
+* February 2015: changed language from C++ to C.
 
 ## Credits
 Developer: Alberto Taiuti  

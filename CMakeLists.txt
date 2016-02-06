@@ -8,7 +8,6 @@ project (szthreadpool)
 
 # Find pthread
 find_library(PTHREADS_LIB pthreadVC2)
-
 if(PTHREADS_LIB)
   message(STATUS ${PTHREADS_LIB})
 endif()
@@ -18,31 +17,30 @@ set(SZTHREADPOOL_EXTERNAL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external)
 set(SZTHREADPOOL_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(SZTHREADPOOL_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-# Set platform-agnostic include dirs for the project
+# Set include dirs for the project
 include_directories(
   ${SZTHREADPOOL_INCLUDE_DIR}
   ${TBB_INCLUDE_DIRS}
   $ENV{PTHREADS-WIN32}/Pre-built.2/include
 )
 
-# Set compiler definitions
-add_definitions(${TBB_DEFINITIONS})
-
 # Set headers and sources for the szutl library
 set(SZTHREADPOOL_HEADERS
   ${SZTHREADPOOL_INCLUDE_DIR}/threadsafe_queue.h
   ${SZTHREADPOOL_INCLUDE_DIR}/thread_pool.h
+  ${SZTHREADPOOL_INCLUDE_DIR}/thread_pool_c.h
   ${SZTHREADPOOL_INCLUDE_DIR}/join_threads.h
 )
 set(SZTHREADPOOL_SOURCES
   ${SZTHREADPOOL_SOURCE_DIR}/main.cpp
   ${SZTHREADPOOL_SOURCE_DIR}/thread_pool.cpp
+  ${SZTHREADPOOL_SOURCE_DIR}/thread_pool_c.c
 )
 
-# Create the szutl library
+# Create the executable
 add_executable(szthpool ${SZTHREADPOOL_HEADERS} ${SZTHREADPOOL_SOURCES})
 
-# Link target with libraries
+# Link target (the executable) with libraries
 target_link_libraries(szthpool
   ${PTHREADS_LIB}
 )
