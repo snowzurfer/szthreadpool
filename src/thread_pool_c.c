@@ -6,6 +6,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <time.h>
+#include "dbg.h"
 
 #ifndef THPOOL_DEBUG
 #define THPOOL_DEBUG 1
@@ -63,32 +64,22 @@ ThreadPool *ThreadPoolInit(int32_t threads_num) {
     threads_num = 0;
   }
 
+  ThreadPool *thread_pool = NULL;
+
   // Initialise thread pool
-  ThreadPool *thread_pool = (ThreadPool *)malloc(sizeof(ThreadPool));
-  if (thread_pool == NULL) {
-    fprintf(stderr, "ThreadPoolInit(): Couldn't allocate memory for the thread pool\n");
-    return NULL;
-  }
+  thread_pool = (ThreadPool *)malloc(sizeof(ThreadPool));
+  check_mem(thread_pool);
+
   thread_pool->threads_alive_num = 0;
   thread_pool->threads_working_num = 0;
 
   // Initialise the jobs queue
-  if (JobsQueueInit(&thread_pool->jobsqueue) == -1) {
-    fprintf(stderr, "ThreadPoolInit(): Couldn't initialise jobs queue\n");
-    free(thread_pool);
-    thread_pool = NULL;
-    return NULL;
-  }
+  int32_t rc = JobsQueueInit(&thread_pool->jobsqueue);
+  check(rc != -1, "ThreadPoolInit(): Couldn't initialise jobs queue");
 
   // Create the threads array in the threads pool
   thread_pool->threads = (Thread **)malloc(threads_num * sizeof(Thread *));
-  if (thread_pool->threads == NULL) {
-    fprintf(stderr, "ThreadPoolInit(): Couldn't alllocate memory for the threads array\n");
-    JobsQueueClear(thread_pool->jobsqueue);
-    free(thread_pool->jobsqueue);
-    free(thread_pool);
-    return NULL;
-  }
+  check_mem(thread_pool->threads);
 
   // Setup mutex and condition variable
   pthread_mutex_init(&(thread_pool->thread_counts_mut), NULL);
@@ -96,10 +87,18 @@ ThreadPool *ThreadPoolInit(int32_t threads_num) {
 
   // Initialise worker threads
   for (int32_t i = 0; i < threads_num; i++) {
-    int32_t res = ThreadInit(&thread_pool->threads[i], i, thread_pool);
-    if (res == -1) {
-      fprintf(stderr, "ThreadPoolInit(): Couldn't init thread %d\n", i);
-      JobsQueueClear(thread_pool->jobsqueue);
+    rc = ThreadInit(&thread_pool->threads[i], i, thread_pool);
+    check(rc != -1, "ThreadPoolInit(): Couldn't init thread %d", i);
+  }
+
+  // Wait for the threads to be initialised
+  while (thread_pool->threads_alive_num < threads_num) {}
+
+  return thread_pool;
+
+error:
+  if (thread_pool != NULL) {
+    if (thread_pool->threads != NULL) {
       // Stop working threads
       threads_keepalive = 0;
 
@@ -112,63 +111,60 @@ ThreadPool *ThreadPoolInit(int32_t threads_num) {
         time (&end);
         tpassed = difftime(end,start);
       }
-      for (int32_t j = 0; j < i; j++) {
-        ThreadJoinAndDestroy(thread_pool->threads[j]);
-      }
-      free(thread_pool->threads);
-      free(thread_pool->jobsqueue);
-      free(thread_pool);
-      return NULL;
+      for (int32_t j = 0; j < threads_num; j++) {
+        if (thread_pool->threads[j] != NULL) {
+          ThreadJoinAndDestroy(thread_pool->threads[j]);
+        }
+     } 
+     free(thread_pool->threads);
     }
+    if (thread_pool->jobsqueue != NULL) {
+      JobsQueueClear(thread_pool->jobsqueue);
+      free(thread_pool->jobsqueue);
+    }
+    pthread_mutex_destroy(&(thread_pool->thread_counts_mut));
+    pthread_cond_destroy(&(thread_pool->wait_threads_cond));
+    free(thread_pool);
   }
 
-
-  // Wait for the threads to be initialised
-  while (thread_pool->threads_alive_num < threads_num) {}
-
-  return thread_pool;
+  return NULL;
 }
 
 
 int32_t ThreadInit(Thread **thread, int32_t id, ThreadPool *thread_pool) {
   *thread = (Thread *)malloc(sizeof(Thread));
-  if (thread == NULL) {
-    fprintf(stderr, "ThreadInit(): couldn't allocate memory for Thread\n");
-    return -1;
-  }
+  check_mem(*thread);
 
   (*thread)->thread_pool = thread_pool;
   (*thread)->id = id;
 
-  int32_t result = pthread_create(&(*thread)->pthread, NULL, WorkerThread,
+  int32_t rc = pthread_create(&(*thread)->pthread, NULL, WorkerThread,
                                   (*thread));
-  if (result != 0) {
-    fprintf(stderr, "ThreadInit(): couldn't create pthread. Return code is %d\n",
-            result);
-    return -1;
-  }
+  check(rc == 0, "ThreadInit(): couldn't create pthread. Return code is %d", rc);
 
-  
   return 0; 
+
+error:
+  return -1;
 }
 
 void ThreadJoinAndDestroy(Thread *thread) {
-  int32_t res = pthread_join(thread->pthread, NULL);
-  if (res != 0) {
-    fprintf(stderr, "ThreadJoinAndDestroy(): Couldn't join thread\n");
+  int32_t rc = pthread_join(thread->pthread, NULL);
+  check(rc == 0, "ThreadJoinAndDestroy(): Couldn't join thread")
+
+  if(thread != NULL) {
+    free(thread);
+    thread = NULL;
   }
 
-  free(thread);
-  thread = NULL;
+error:
+  if(thread != NULL) free(thread);
 }
 
 int32_t ThreadpoolSubmit(ThreadPool *thread_pool, JobFunction job,
   const void *input) {
   Job *new_job = (Job *)malloc(sizeof(Job));
-  if (new_job == NULL) {
-    fprintf(stderr, "ThreadpoolSubmit(): Couldn't allocate memory for the new job\n");
-      return -1;
-  }
+  check_mem(new_job);
 
   // Init job
   new_job->job_routine = job;
@@ -178,6 +174,9 @@ int32_t ThreadpoolSubmit(ThreadPool *thread_pool, JobFunction job,
   JobsQueuePush(thread_pool->jobsqueue, new_job);
 
   return 0;
+
+error:
+  return -1;
 }
 
 void ThreadpoolWaitAllJobs(ThreadPool *thread_pool) {
@@ -236,7 +235,7 @@ void *WorkerThread(Thread *thread) {
   thread_pool->threads_alive_num ++;
   pthread_mutex_unlock(&(thread_pool->thread_counts_mut));
 
-  printf("Initialised thread %d\n", thread->id);
+  log_info("Initialised thread %d", thread->id);
 
   while (threads_keepalive) {
     Job *job = JobsQueueTryPop(thread_pool->jobsqueue);
@@ -278,17 +277,14 @@ void *WorkerThread(Thread *thread) {
   thread_pool->threads_alive_num --;
   pthread_mutex_unlock(&(thread_pool->thread_counts_mut));
 
-  printf("Exiting thread %d\n", thread->id);
+  log_info("Exiting thread %d", thread->id);
   pthread_exit(NULL);
 }
 
 
 int32_t JobsQueueInit(JobsQueue **jobsqueue) {
   JobsQueue *queue = (JobsQueue *)malloc(sizeof(JobsQueue));
-  if (queue == NULL) {
-    fprintf(stderr, "JobsQueueInit(): couldn't allocate memory for JobsQueue\n");
-    return -1;
-  }
+  check_mem(queue);
 
   queue->lenght = 0;
   queue->front = NULL;
@@ -299,6 +295,9 @@ int32_t JobsQueueInit(JobsQueue **jobsqueue) {
   *jobsqueue = queue;
 
   return 0;
+
+error:
+  return -1;
 }
 
 Job *JobsQueueWaitAndPop(JobsQueue *jobsqueue) {

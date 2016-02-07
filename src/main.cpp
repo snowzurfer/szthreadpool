@@ -8,6 +8,7 @@
 extern "C"
 {
 #include "thread_pool_c.h"
+#include "dbg.h"
 }
 
 typedef struct PrintJobArg {
@@ -64,7 +65,7 @@ int main() {
   ThreadpoolSubmit(thread_pool, PrintHello, nullptr);
   ThreadpoolSubmit(thread_pool, SleepJob, nullptr);
 
-  printf("Now waiting for jobs to complete...\n");
+  log_info("Now waiting for jobs to complete...");
   ThreadpoolWaitAllJobs(thread_pool);
 
   ThreadpoolDestroy(thread_pool);
