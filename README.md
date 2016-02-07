@@ -1,11 +1,19 @@
-# szthreadpool
-Threads pool in C.
+# szthreadpool - thread pool in C using pthreads
+Threads pool in C implemented using pthreads.
 
 ## Installation
-Clone the repo and use CMake to create a project build. Then compile and use.
+* If on windows
+  1. Download the latest build of
+[pthread-win32](https://www.sourceware.org/pthreads-win32)
+  2. Extract the library where preferred
+  3. Place the desired .dll under `C:\Windows`. More info on whych .dll to use
+  can be found at pthreads-win32's FAQs
+  4. Add the environment variable PTHREADS-WIN32 pointing to the root folder of
+  the pthread-win32 library, the one which contains 3 folders
+1. Clone the repo and use CMake to create a project build for your target
 
 ## Usage
-TODO: Write usage instructions
+See the threadpool header for the signatures and main.cpp for an example usage.
 
 ## Contributing
 1. Fork it!
