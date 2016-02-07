@@ -22,7 +22,6 @@ void PrintFromInput(const int32_t worker_id, const void *input) {
   if (input == nullptr) {
     return;
   }
-
   const PrintJobArg *arg = (const PrintJobArg *)input;
 
   if (arg->input_buffer == nullptr) {
@@ -32,11 +31,11 @@ void PrintFromInput(const int32_t worker_id, const void *input) {
 
   const char *string = (const char *)arg->input_buffer;
 
-  printf("%s\n", string);
+  printf("Thread %d: %s\n", worker_id, string);
 }
 
 void PrintHello(const int32_t worker_id, const void *input) {
-  printf("Hello!\n");
+  printf("Thread %d: Hello!\n", worker_id);
 }
 
 void SleepJob(const int32_t worker_id, const void *input) {
@@ -49,7 +48,7 @@ void SleepJob(const int32_t worker_id, const void *input) {
     tpassed = difftime(end,start);
   }
 
-  printf("Finished sleeping!\n");
+  printf("Thread %d: Finished sleeping!\n", worker_id);
 }
 
 int main() {

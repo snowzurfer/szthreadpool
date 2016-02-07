@@ -11,7 +11,7 @@
 #ifndef THPOOL_DEBUG
 #define THPOOL_DEBUG 1
 #else
-#define THIPOOL_DEBUG 0
+#define THPOOL_DEBUG 0
 #endif
 
 volatile int32_t threads_keepalive;
@@ -29,6 +29,9 @@ typedef struct JobsQueue {
   Job *front;
   Job *rear;
   int32_t lenght;
+  // This flag is used when a thread waiting on the cond. var of the queue
+  // needs to be waken up because the process is exiting.
+  int32_t program_end_flag;
 } JobsQueue;
 
 typedef struct Thread {
@@ -49,12 +52,14 @@ typedef struct ThreadPool {
 
 int32_t ThreadInit(Thread **thread, int32_t id, ThreadPool *thread_pool);
 void *WorkerThread(Thread *thread);
+void ThreadCancelRoutine(Thread *thread);
 void ThreadJoinAndDestroy(Thread *thread);
 int32_t JobsQueueInit(JobsQueue **jobsqueue);
 Job *JobsQueueWaitAndPop(JobsQueue *jobsqueue);
 Job *JobsQueueTryPop(JobsQueue *jobsqueue);
 void JobsQueuePush(JobsQueue *jobsqueue, Job *new_job);
 void JobsQueueClear(JobsQueue *jobsqueue);
+void JobsQueueAwakeThreads(JobsQueue *jobsqueue);
 
 
 ThreadPool *ThreadPoolInit(int32_t threads_num) {
@@ -197,21 +202,26 @@ void ThreadpoolDestroy(ThreadPool *thread_pool) {
   volatile int32_t threads_total = thread_pool->threads_alive_num;
 
   // Stop worker threads' function
-  threads_keepalive = 0;
+  //threads_keepalive = 0;
 
-  // Give one second to kill idle threads
-  double TIMEOUT = 1.0;
-  time_t start, end;
-  double tpassed = 0.0;
-  time (&start);
-  while (tpassed < TIMEOUT && thread_pool->threads_alive_num == 0) {
-    time (&end);
-    tpassed = difftime(end,start);
+  //// Give one second to kill idle threads
+  //double TIMEOUT = 1.0;
+  //time_t start, end;
+  //double tpassed = 0.0;
+  //time (&start);
+  //while (tpassed < TIMEOUT && thread_pool->threads_alive_num == 0) {
+  //  time (&end);
+  //  tpassed = difftime(end,start);
+  //}
+
+  // Cancel all the threads
+  for (int32_t i = 0; i < threads_total; i++) {
+    pthread_cancel(thread_pool->threads[i]->pthread);
   }
-
   // Cleanup the threads list
   for (int32_t i = 0; i < threads_total; i++) {
-    ThreadJoinAndDestroy(thread_pool->threads[i]);
+    pthread_join(thread_pool->threads[i]->pthread, NULL);
+    //ThreadJoinAndDestroy(thread_pool->threads[i]);
   }
   free(thread_pool->threads);
 
@@ -230,15 +240,23 @@ void ThreadpoolDestroy(ThreadPool *thread_pool) {
 void *WorkerThread(Thread *thread) {
   ThreadPool *thread_pool = thread->thread_pool;
 
+
   // Mark thread as initialised
   pthread_mutex_lock(&(thread_pool->thread_counts_mut));
   thread_pool->threads_alive_num ++;
   pthread_mutex_unlock(&(thread_pool->thread_counts_mut));
 
+  // Setup cancellation policy
+  int32_t last_state, last_type;
+  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &last_state);
+  pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, &last_type);
+  pthread_cleanup_push(ThreadCancelRoutine, thread);
+
   log_info("Initialised thread %d", thread->id);
 
   while (threads_keepalive) {
-    Job *job = JobsQueueTryPop(thread_pool->jobsqueue);
+    debug("Thread %d: About to enter wait and pop", thread->id);
+    Job *job = JobsQueueWaitAndPop(thread_pool->jobsqueue);
 
     if (threads_keepalive) {
       JobFunction job_routine = NULL;
@@ -257,6 +275,7 @@ void *WorkerThread(Thread *thread) {
 
         free(job);
 
+        debug("Finished job, thread %d", thread->id);
         // Decrease counter of threads working on a job
         pthread_mutex_lock(&(thread_pool->thread_counts_mut));
         thread_pool->threads_working_num --;
@@ -265,22 +284,41 @@ void *WorkerThread(Thread *thread) {
         }
         pthread_mutex_unlock(&(thread_pool->thread_counts_mut));
       }
-      else {
-        // Sleep for a short while
-        //sleep(0.1);
-      }
     }
+
+    pthread_testcancel();
   }
 
   // Mark thread as dead
   pthread_mutex_lock(&(thread_pool->thread_counts_mut));
   thread_pool->threads_alive_num --;
   pthread_mutex_unlock(&(thread_pool->thread_counts_mut));
-
+  log_warn("Shouldn't be here");
   log_info("Exiting thread %d", thread->id);
+  pthread_cleanup_pop(0);
   pthread_exit(NULL);
 }
 
+void ThreadCancelRoutine(void *input) {
+  Thread *thread = (Thread *)input;
+
+  // Mark thread as dead
+  pthread_mutex_lock(&(thread->thread_pool->thread_counts_mut));
+  thread->thread_pool->threads_alive_num --;
+  pthread_mutex_unlock(&(thread->thread_pool->thread_counts_mut));
+
+  // Check to see if the mutex on the queue is still held; if so,
+  // unlock it
+  if (pthread_mutex_trylock(&(thread->thread_pool->jobsqueue->mut))) {
+    // Unlock again
+    pthread_mutex_unlock(&(thread->thread_pool->jobsqueue->mut));
+  }
+  else {
+    pthread_mutex_unlock(&(thread->thread_pool->jobsqueue->mut));
+  }
+
+  log_info("Exiting thread %d", thread->id);
+}
 
 int32_t JobsQueueInit(JobsQueue **jobsqueue) {
   JobsQueue *queue = (JobsQueue *)malloc(sizeof(JobsQueue));
@@ -291,6 +329,7 @@ int32_t JobsQueueInit(JobsQueue **jobsqueue) {
   queue->rear = NULL;
   pthread_mutex_init(&(queue->mut), NULL);
   pthread_cond_init(&(queue->cond), NULL);
+  queue->program_end_flag = 0;
 
   *jobsqueue = queue;
 
@@ -302,9 +341,15 @@ error:
 
 Job *JobsQueueWaitAndPop(JobsQueue *jobsqueue) {
   // While the queue is empty, make thread sleep
+  debug("About to lock mutex");
   pthread_mutex_lock(&(jobsqueue->mut));
-  while (jobsqueue->lenght <= 0) {
+  while (jobsqueue->lenght <= 0 || jobsqueue->program_end_flag) {
+    debug("Waiting in wait and pop");
     pthread_cond_wait(&(jobsqueue->cond), &(jobsqueue->mut));
+  }
+  if (jobsqueue->program_end_flag) {
+    debug("program_end_flag set");
+    return NULL;
   }
 
   Job *popped_job = jobsqueue->front;
@@ -380,6 +425,16 @@ void JobsQueuePush(JobsQueue *jobsqueue, Job *new_job) {
   pthread_mutex_unlock(&(jobsqueue->mut));
 }
 
+void JobsQueueAwakeThreads(JobsQueue *jobsqueue) {
+  // Set the flag to be 1
+  pthread_mutex_lock(&(jobsqueue->mut));
+  jobsqueue->program_end_flag = 1;
+  pthread_mutex_unlock(&(jobsqueue->mut));
+
+  // Send message to all threads waiting on the cond variable
+  pthread_cond_broadcast(&(jobsqueue->cond));
+}
+
 void JobsQueueClear(JobsQueue *jobsqueue) {
   while (jobsqueue->lenght) {
     Job *job_to_free = JobsQueueTryPop(jobsqueue);
@@ -391,4 +446,5 @@ void JobsQueueClear(JobsQueue *jobsqueue) {
   jobsqueue->front = NULL;
   jobsqueue->rear = NULL;
   jobsqueue->lenght = 0;
+  jobsqueue->program_end_flag = 0;
 }
