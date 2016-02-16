@@ -29,21 +29,39 @@ set(SZTHREADPOOL_HEADERS
   ${SZTHREADPOOL_INCLUDE_DIR}/thread_pool_c.h
   ${SZTHREADPOOL_INCLUDE_DIR}/dbg.h
 )
-set(SZTHREADPOOL_SOURCES
+set(SZTHREADPOOL_SOURCES_EXECUTABLE
   ${SZTHREADPOOL_SOURCE_DIR}/main.cpp
+  ${SZTHREADPOOL_SOURCE_DIR}/thread_pool_c.c
+)
+set(SZTHREADPOOL_SOURCES_LIB
   ${SZTHREADPOOL_SOURCE_DIR}/thread_pool_c.c
 )
 
 # Create the executable
-add_executable(szthpool ${SZTHREADPOOL_HEADERS} ${SZTHREADPOOL_SOURCES})
+add_executable(szthpool ${SZTHREADPOOL_HEADERS}
+  ${SZTHREADPOOL_SOURCES_EXECUTABLE})
+# Create the library version
+add_library(libszthpool ${SZTHREADPOOL_HEADERS}
+  ${SZTHREADPOOL_SOURCES_LIB})
 
 # Link target (the executable) with libraries
 target_link_libraries(szthpool
   ${PTHREADS_LIB}
 )
+# Link target (the lib) with libraries
+target_link_libraries(libszthpool
+  ${PTHREADS_LIB}
+)
 
 # Set the output directories for the libraries and binaries
 set_target_properties (szthpool
+  PROPERTIES 
+  ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
+  LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
+  RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+# Set the output directories for the libraries and binaries
+set_target_properties (libszthpool
   PROPERTIES 
   ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
   LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
