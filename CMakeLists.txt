@@ -1,3 +1,6 @@
+# Usage:
+# use "set(SZTHREADPOOL_BUILD_EXE TRUE/FALSE)" in the parent scope to decide whether to build
+# or not the executable or the library; true = build exe, false = build library
 
 # Cmake entry point
 cmake_minimum_required (VERSION 2.8.9)
@@ -16,7 +19,6 @@ endif()
 set(SZTHREADPOOL_EXTERNAL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external)
 set(SZTHREADPOOL_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(SZTHREADPOOL_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
-set(SZTHREADPOOL_BUILD_EXE TRUE)
 
 # Set include dirs for the project
 include_directories(
