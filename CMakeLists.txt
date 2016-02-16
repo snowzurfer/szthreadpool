@@ -16,6 +16,7 @@ endif()
 set(SZTHREADPOOL_EXTERNAL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external)
 set(SZTHREADPOOL_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(SZTHREADPOOL_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
+set(SZTHREADPOOL_BUILD_EXE TRUE)
 
 # Set include dirs for the project
 include_directories(
@@ -38,34 +39,36 @@ set(SZTHREADPOOL_SOURCES_LIB
 )
 
 # Create the executable
-add_executable(szthpool ${SZTHREADPOOL_HEADERS}
-  ${SZTHREADPOOL_SOURCES_EXECUTABLE})
-# Create the library version
-add_library(libszthpool ${SZTHREADPOOL_HEADERS}
-  ${SZTHREADPOOL_SOURCES_LIB})
+if(${SZTHREADPOOL_BUILD_EXE})
+  add_executable(szthpool ${SZTHREADPOOL_HEADERS}
+    ${SZTHREADPOOL_SOURCES_EXECUTABLE})
+  # Link target (the executable) with libraries
+  target_link_libraries(szthpool
+    ${PTHREADS_LIB}
+  )
+  # Set the output directories for the libraries and binaries
+  set_target_properties (szthpool
+    PROPERTIES 
+    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+else()
+  # Create the library version
+  add_library(libszthpool ${SZTHREADPOOL_HEADERS}
+    ${SZTHREADPOOL_SOURCES_LIB})
+  # Link target (the lib) with libraries
+  target_link_libraries(libszthpool
+    ${PTHREADS_LIB}
+  )
+  # Set the output directories for the libraries and binaries
+  set_target_properties (libszthpool
+    PROPERTIES 
+    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+endif()
 
-# Link target (the executable) with libraries
-target_link_libraries(szthpool
-  ${PTHREADS_LIB}
-)
-# Link target (the lib) with libraries
-target_link_libraries(libszthpool
-  ${PTHREADS_LIB}
-)
 
-# Set the output directories for the libraries and binaries
-set_target_properties (szthpool
-  PROPERTIES 
-  ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
-  LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
-  RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-
-# Set the output directories for the libraries and binaries
-set_target_properties (libszthpool
-  PROPERTIES 
-  ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
-  LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
-  RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 set(CONFIGURED_ONCE TRUE CACHE INTERNAL
     "A flag showing that CMake has configured at least once.")
