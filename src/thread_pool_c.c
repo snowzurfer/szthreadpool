@@ -52,7 +52,7 @@ typedef struct ThreadPool {
 
 int32_t ThreadInit(Thread **thread, int32_t id, ThreadPool *thread_pool);
 void *WorkerThread(Thread *thread);
-void ThreadCancelRoutine(Thread *thread);
+void ThreadCancelRoutine(void *thread);
 void ThreadJoinAndDestroy(Thread *thread);
 int32_t JobsQueueInit(JobsQueue **jobsqueue);
 Job *JobsQueueWaitAndPop(JobsQueue *jobsqueue);
