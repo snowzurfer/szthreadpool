@@ -1,30 +1,24 @@
 
 //#include "thread_pool.h"
-#include <iostream>
-#include <thread>
-#include <atomic>
 #include <pthread.h>
-#include <Windows.h>
-extern "C"
-{
 #include "thread_pool_c.h"
 #include "dbg.h"
-}
+#include <stdint.h>
+#include <stdio.h>
 
 typedef struct PrintJobArg {
   uint8_t *input_buffer;
   int32_t input_buffer_size;
 } PrintJobArg;
 
-std::atomic<int32_t> done_label = 0;
 
 void PrintFromInput(const int32_t worker_id, const void *input) {
-  if (input == nullptr) {
+  if (input == NULL) {
     return;
   }
   const PrintJobArg *arg = (const PrintJobArg *)input;
 
-  if (arg->input_buffer == nullptr) {
+  if (arg->input_buffer == NULL) {
     fprintf(stderr, "PrintFromInput(): input is NULL");
     return;
   }
@@ -53,16 +47,17 @@ void SleepJob(const int32_t worker_id, const void *input) {
 
 int main() {
   ThreadPool *thread_pool = ThreadPoolInit(2);
-  int32_t concurrency = pthread_getconcurrency();
+  int32_t concurrency = 0;
+  concurrency =  pthread_getconcurrency();
   char *string = "I am here";
   int32_t size = 10;
   PrintJobArg input_arg = { (uint8_t *)string, size};
 
-  ThreadpoolSubmit(thread_pool, PrintHello, nullptr);
+  ThreadpoolSubmit(thread_pool, PrintHello, NULL);
   ThreadpoolSubmit(thread_pool, PrintFromInput, &input_arg);
-  ThreadpoolSubmit(thread_pool, PrintHello, nullptr);
-  ThreadpoolSubmit(thread_pool, PrintHello, nullptr);
-  ThreadpoolSubmit(thread_pool, SleepJob, nullptr);
+  ThreadpoolSubmit(thread_pool, PrintHello, NULL);
+  ThreadpoolSubmit(thread_pool, PrintHello, NULL);
+  ThreadpoolSubmit(thread_pool, SleepJob, NULL);
 
   log_info("Now waiting for jobs to complete...");
   ThreadpoolWaitAllJobs(thread_pool);

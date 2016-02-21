@@ -6,14 +6,18 @@
 cmake_minimum_required (VERSION 2.8.9)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/rpavlik-cmake-modules-1c73e35/")
 #message(STATUS $ENV{PTHREADS-WIN32}/Pre-built\.2/lib)
-if(${CMAKE_SYSTEM_NAME} matches "Windows")
+
+project (szthreadpool)
+
+# Find pthread
+if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
   set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} $ENV{PTHREADS-WIN32}/Pre-built.2/lib/x86)
   message(STATUS "Windows detected")
   find_library(PTHREADS_LIB pthreadVC2 REQUIRED)
   if(PTHREADS_LIB)
     message(STATUS ${PTHREADS_LIB})
   endif()
-elseif(${CMAKE_SYSTEM_NAME} matches "Linux")
+elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   message(STATUS "Linux detected")
   find_package(Threads REQUIRED)
   if(THREADS_HAVE_PTHREAD_ARG)
@@ -22,11 +26,8 @@ elseif(${CMAKE_SYSTEM_NAME} matches "Linux")
   if(CMAKE_THREAD_LIBS_INIT)
     set(PTHREADS_LIB "${CMAKE_THREAD_LIBS_INIT}")
   endif()
-endif(${CMAKE_SYSTEM_NAME} matches "Linux")
+endif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 
-project (szthreadpool)
-
-# Find pthread
 
 # Setup handy variables:
 set(SZTHREADPOOL_EXTERNAL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external)
@@ -49,7 +50,7 @@ set(SZTHREADPOOL_HEADERS
   ${SZTHREADPOOL_INCLUDE_DIR}/dbg.h
 )
 set(SZTHREADPOOL_SOURCES_EXECUTABLE
-  ${SZTHREADPOOL_SOURCE_DIR}/main.cpp
+  ${SZTHREADPOOL_SOURCE_DIR}/main.c
   ${SZTHREADPOOL_SOURCE_DIR}/thread_pool_c.c
 )
 set(SZTHREADPOOL_SOURCES_LIB
