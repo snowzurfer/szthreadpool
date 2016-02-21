@@ -6,14 +6,27 @@
 cmake_minimum_required (VERSION 2.8.9)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/rpavlik-cmake-modules-1c73e35/")
 #message(STATUS $ENV{PTHREADS-WIN32}/Pre-built\.2/lib)
-set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} $ENV{PTHREADS-WIN32}/Pre-built.2/lib/x86)
+if(${CMAKE_SYSTEM_NAME} matches "Windows")
+  set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} $ENV{PTHREADS-WIN32}/Pre-built.2/lib/x86)
+  message(STATUS "Windows detected")
+  find_library(PTHREADS_LIB pthreadVC2 REQUIRED)
+  if(PTHREADS_LIB)
+    message(STATUS ${PTHREADS_LIB})
+  endif()
+elseif(${CMAKE_SYSTEM_NAME} matches "Linux")
+  message(STATUS "Linux detected")
+  find_package(Threads REQUIRED)
+  if(THREADS_HAVE_PTHREAD_ARG)
+    set(COMPILE_OPTS "-pthread")
+  endif()
+  if(CMAKE_THREAD_LIBS_INIT)
+    set(PTHREADS_LIB "${CMAKE_THREAD_LIBS_INIT}")
+  endif()
+endif(${CMAKE_SYSTEM_NAME} matches "Linux")
+
 project (szthreadpool)
 
 # Find pthread
-find_library(PTHREADS_LIB pthreadVC2)
-if(PTHREADS_LIB)
-  message(STATUS ${PTHREADS_LIB})
-endif()
 
 # Setup handy variables:
 set(SZTHREADPOOL_EXTERNAL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external)
@@ -57,6 +70,9 @@ if(${SZTHREADPOOL_BUILD_EXE})
     ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+  # Set compile options if on linux
+  set_property(TARGET szthpool PROPERTY COMPILE_OPTIONS ${COMPILE_OPTS})
+  set_property(TARGET szthpool PROPERTY INTERFACE_COMPILE_OPTIONS ${COMPILE_OPTS})
 else()
   # Create the library version
   add_library(libszthpool ${SZTHREADPOOL_HEADERS}
@@ -71,6 +87,9 @@ else()
     ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+  # Set compile options if on linux
+  set_property(TARGET libszthpool PROPERTY COMPILE_OPTIONS ${COMPILE_OPTS})
+  set_property(TARGET libszthpool PROPERTY INTERFACE_COMPILE_OPTIONS ${COMPILE_OPTS})
 endif()
 
 
