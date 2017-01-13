@@ -1,5 +1,6 @@
 # szthreadpool - thread pool in C using pthreads
-Threads pool in C implemented using pthreads.
+Threads pool in C implemented using pthreads. 
+Please visit http://www.albertotaiuti.com/memalloc.php for a more detailed report.
 
 ## Installation
 * If on windows
