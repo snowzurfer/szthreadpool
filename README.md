@@ -32,5 +32,5 @@ Developer: Alberto Taiuti
 Mentor and supervisor: Steven Tovey
 
 ## License
-TODO: Write license
+See LICENSE
 
